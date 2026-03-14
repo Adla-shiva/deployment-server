@@ -13,7 +13,7 @@ const pm2 = require("pm2");
 const { createProxyMiddleware } = require("http-proxy-middleware");
 
 const app = express();
-const secretkey = "123456675th5gtrgtr";
+const secretkey =env.secret;
 
 app.use(cors());
 app.use(express.json());
@@ -24,7 +24,7 @@ app.use(express.urlencoded({ extended: true }));
 async function conn() {
   try {
     await mongoose.connect(
-      "mongodb+srv://shiva:ADLAshiva@cluster0.sucphnh.mongodb.net/register_vercel"
+      "env.url"
     );
     console.log("MongoDB connected");
   } catch (err) {
