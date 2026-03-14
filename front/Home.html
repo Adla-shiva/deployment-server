@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dashboard</title>
+</head>
+<body>
+
+<div id="content">
+  <h1>Welcome!</h1>
+  <p>You are logged in.</p>
+  <button onclick="logout()">Logout</button>
+</div>
+<H1> Deployment </h1>
+<form id="deployForm">
+  <label for="url">Enter Repository URL:</label>
+  <input type="text" id="url" name="url" placeholder="https://github.com/user/repo" required>
+  <button type="submit" id="submitBtn">Deploy</button>
+</form>
+
+<p id="status"></p>
+
+<script>
+const form = document.getElementById("deployForm");
+const status = document.getElementById("status");
+const btn = document.getElementById("submitBtn");
+
+function isValidURL(str) {
+  try {
+    new URL(str);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+form.addEventListener("submit", async (e) => {
+
+  e.preventDefault();
+
+  const url = document.getElementById("url").value.trim();
+  const token = localStorage.getItem("token");
+
+  status.innerText = "";
+
+  /* ---------- validations ---------- */
+
+  if (!url) {
+    status.innerText = "❌ Please enter a repository URL";
+    return;
+  }
+
+  if (!isValidURL(url)) {
+    status.innerText = "❌ Invalid URL format";
+    return;
+  }
+
+  if (!url.includes("github.com")) {
+    status.innerText = "❌ Only GitHub repositories are supported";
+    return;
+  }
+
+  if (!token) {
+    status.innerText = "❌ You are not logged in";
+    window.location.href = "login.html";
+    return;
+  }
+
+  /* ---------- loading state ---------- */
+
+  btn.disabled = true;
+  btn.innerText = "Deploying...";
+  status.innerText = "⏳ Starting deployment...";
+
+  try {
+    console.log(url);
+    const res = await fetch("http://localhost:3000/deploy", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + token
+      },
+      body: JSON.stringify({ url })
+    });
+
+    const data = await res.json();
+
+    /* ---------- HTTP status handling ---------- */
+
+    if (res.status === 401) {
+      status.innerText = "❌ Session expired. Please login again.";
+      localStorage.removeItem("token");
+      setTimeout(()=> window.location.href="login.html",1500);
+      return;
+    }
+
+    if (res.status === 400) {
+      status.innerText = "❌ Bad request: " + (data.error || "");
+      return;
+    }
+
+    if (res.status === 500) {
+      status.innerText = "❌ Server error. Try again later.";
+      return;
+    }
+
+    /* ---------- success ---------- */
+
+    if (data.success) {
+
+      status.innerHTML = `
+        ✅ Deployment started <br>
+        Deployment ID: <b>${data.id}</b> <br>
+        URL: <a href="${data.url}" target="_blank">${data.url}</a>
+      `;
+
+      form.reset();
+      return;
+    }
+
+    status.innerText = "❌ " + (data.error || "Unknown error");
+
+  } catch (err) {
+
+    /* ---------- network errors ---------- */
+
+    if (err.name === "TypeError") {
+      status.innerText = "❌ Cannot connect to server";
+    } else {
+      status.innerText = "❌ Unexpected error occurred";
+    }
+
+    console.error(err);
+
+  } finally {
+
+    btn.disabled = false;
+    btn.innerText = "Deploy";
+
+  }
+
+});
+
+
+
+  async function verifyToken() {
+    const token = localStorage.getItem("token");
+
+    if (!token) return window.location.href = "./login.html";
+
+    try {
+      const res = await fetch("http://localhost:3000/protected", {
+        method: "GET",
+        headers: { "Authorization": "Bearer " + token }
+      });
+
+      const data = await res.json();
+
+      if (!data.valid) {
+        localStorage.removeItem("token");
+        // alert("Session expired. Please login again.");
+        return window.location.href = "./login.html";
+      }
+
+    
+
+    } catch (err) {
+      console.error(err);
+      window.error("Token verification failed: " + err);
+      localStorage.removeItem("token");
+      window.location.href = "./login.html";
+    }
+  }
+
+  window.addEventListener("load", verifyToken);
+
+  function logout() {
+    localStorage.removeItem("token");
+    window.location.href = "./login.html";
+  }
+</script>
+
+</body>
+</html>
