@@ -48,6 +48,22 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
+app.get('/protected', (req, res) => {
+  const authHeader = req.headers["authorization"];
+  if (!authHeader) return res.status(401).json({ valid: false });
+
+  const token = authHeader.split(" ")[1]; // Bearer <token>
+  try {
+    const decoded = jwt.verify(token, secretkey);
+    if (!decoded) return res.status(401).json({ valid: false });
+
+    // Only send validation result
+    res.json({ valid: true });
+  } catch (err) {
+    res.status(401).json({ valid: false });
+  }
+});
+
 // ---------------- User Routes ----------------
 app.post("/register", async (req, res) => {
   const { name, email, password } = req.body;
@@ -205,9 +221,10 @@ app.post("/deploy", authMiddleware, async (req, res) => {
     });
 
     res.json({
+      success: true,
       id,
       port,
-      url: `http://localhost:${port}/${id}`,
+      url: `http://localhost:${3000}/${id}`,
     });
   } catch (err) {
     console.error(err);
